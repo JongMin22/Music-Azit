@@ -128,13 +128,19 @@ def on_music_control(data):
                 'quiet': True,
                 'skip_download': True,
                 
-                # ⬇️ 기존 'cookiefile': 'cookies.txt'를 지우고, 아래처럼 절대 경로로 명시해 줍니다!
+                # 🍪 기존 쿠키 라인 유지
                 'cookiefile': os.path.join(os.path.dirname(__file__), 'cookies.txt'), 
                 
+                # 🎯 [2026 최신 차단 파괴 옵션] 유튜브의 기기 인증 토큰(POToken)을 강제로 생성 및 주입합니다.
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['web', 'ios'],  # 폰(iOS)에서 요청하는 것처럼 위장해서 락을 해제
+                        'po_token': ['web+https://www.youtube.com/checkpoint'],
+                    }
+                },
+                
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
                 }
             }
             
