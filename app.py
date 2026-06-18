@@ -202,4 +202,9 @@ def send_room_status():
     socketio.emit('room_update', {'users': AZIT_DATA['users'], 'owner': AZIT_DATA['owner'], 'master': AZIT_DATA['master']}, to='main_azit')
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000)
+    import os
+    # Render가 지정해 주는 환경 변수 포트(PORT)를 자동으로 낚아채고, 없으면 기본 5000번을 씁니다.
+    port = int(os.environ.get("PORT", 5000))
+    
+    # host="0.0.0.0"을 꽂아줘야 Render 외부 망과 연결되는 문이 완전히 열립니다!
+    socketio.run(app, host="0.0.0.0", port=port, debug=False)
