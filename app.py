@@ -4,19 +4,21 @@ import requests
 import urllib.parse
 from yt_dlp import YoutubeDL
 import static_ffmpeg
+import os
+
+# 🛠️ Render 서버 내부 멀티미디어 디코더(FFmpeg) 강제 이식
 static_ffmpeg.add_paths()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'music_secret_key_1234'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# 🔑 디스코드 OAuth2 설정 (유지)
+# 🔑 디스코드 OAuth2 설정
 DISCORD_CLIENT_ID = '1516847818344497243'
 DISCORD_CLIENT_SECRET = 'WMM8U0_CvMzNJpsy7cYcnLCVTXvn3oIc'
 DISCORD_REDIRECT_URI = 'https://music-azit.onrender.com/callback'
 
-# ⭐ [필독] 방장님의 진짜 디스코드 닉네임을 여기에 적어주세요!
-# 로그인했을 때 이 이름과 일치하면 자동으로 '최종 마스터' 자격을 부여합니다.
+# ⭐ 절대 마스터 닉네임 설정
 MASTER_NAME = "종민" 
 
 # 단일 채널용 실시간 메모리 데이터셋
@@ -28,23 +30,6 @@ AZIT_DATA = {
     'current_song': None
 }
 
-ydl_opts = {
-    'format': 'bestaudio/best',
-    'noplaylist': True,
-    'quiet': True,
-    'skip_download': True,
-    
-    # ⚡ [핵심 속도 패치] 음원 상세 추출 과정을 건너뛰고 '검색 결과 목록'만 빠르게 낚아챕니다.
-    'extract_flat': 'in_playlist',  
-    'force_generic_extractor': False,
-    
-    # 기존에 추가했던 쿠키 파일도 그대로 유지해 줍니다 (봇 차단 방지)
-    'cookiefile': 'cookies.txt', 
-    
-    'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    }
-}
 @app.route('/')
 def index():
     user_info = session.get('user')
@@ -59,12 +44,23 @@ def login():
 @app.route('/callback')
 def callback():
     code = request.args.get('code')
-    if not code: return "로그인 실패", 400
+    if not code: 
+        return "로그인 실패", 400
+        
     token_url = 'https://discord.com/api/v10/oauth2/token'
-    data = {'client_id': DISCORD_CLIENT_ID, 'client_secret': DISCORD_CLIENT_SECRET, 'grant_type': 'authorization_code', 'code': code, 'redirect_uri': DISCORD_REDIRECT_URI}
+    data = {
+        'client_id': DISCORD_CLIENT_ID, 
+        'client_secret': DISCORD_CLIENT_SECRET, 
+        'grant_type': 'authorization_code', 
+        'code': code, 
+        'redirect_uri': DISCORD_REDIRECT_URI
+    }
+    
     token_json = requests.post(token_url, data=data, headers={'Content-Type': 'application/x-www-form-urlencoded'}).json()
     access_token = token_json.get('access_token')
-    if not access_token: return "토큰 발급 실패", 400
+    if not access_token: 
+        return "토큰 발급 실패", 400
+        
     user_json = requests.get('https://discord.com/api/v10/users/@me', headers={'Authorization': f'Bearer {access_token}'}).json()
     
     discord_id = user_json.get('id')
@@ -77,29 +73,46 @@ def callback():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None); return redirect(url_for('index'))
+    session.pop('user', None)
+    return redirect(url_for('index'))
 
 
-# 📡 실시간 음악 검색 파이프라인
+# 📡 1. 실시간 음악 검색 파이프라인 (속도 다이어트 옵션 고정)
 @socketio.on('search_song')
 def on_search_song(data):
     keyword = data.get('keyword', '').strip()
-    if not keyword: return
+    if not keyword: 
+        return
+        
     try:
-        with YoutubeDL({'quiet': True, 'extract_flat': True}) as ydl:
+        # ⚡ 검색 전용 초경량 다이어트 바구니
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'noplaylist': True,
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': 'in_playlist',  # 껍데기 정보만 광속으로 파싱
+            'force_generic_extractor': False,
+        }
+        
+        with YoutubeDL(ydl_opts) as ydl:
             search_result = ydl.extract_info(f"ytsearch5:{keyword}", download=False)
             results = []
             if 'entries' in search_result:
                 for entry in search_result['entries']:
+                    if not entry: 
+                        continue
                     results.append({
                         'title': entry.get('title'),
                         'url': f"https://www.youtube.com/watch?v={entry.get('id')}",
                         'thumbnail': f"https://i.ytimg.com/vi/{entry.get('id')}/hqdefault.jpg"
                     })
             emit('search_result', {'results': results})
-    except Exception as e: print(f"🚨 검색 실패: {e}")
+    except Exception as e: 
+        print(f"🚨 검색 실패: {e}")
 
-# 📡 대기열 및 재생 제어
+
+# 📡 2. 대기열 및 재생 제어 파이프라인 (유튜브 차단 우회 및 포맷 에러 고정)
 @socketio.on('music_control')
 def on_music_control(data):
     action = data.get('action')
@@ -108,19 +121,34 @@ def on_music_control(data):
         url = data.get('url', '')
         thumbnail = data.get('thumbnail', '')
         try:
+            # 🍪 실제 재생 시 봇 인증을 무력화하는 무적의 우회 바구니
+            ydl_opts = {
+                'format': 'ba/ba*',  # 포맷 다운 에러 완벽 방지
+                'noplaylist': True,
+                'quiet': True,
+                'skip_download': True,
+                'cookiefile': 'cookies.txt',  # 구워둔 크롬 로그인 쿠키 연동
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                }
+            }
+            
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 song_data = {
                     'audioUrl': info['url'], 
                     'title': info.get('title', '유튜브 오디오'), 
                     'thumbnail': thumbnail,
-                    'progress': 0  # ⏱️ 곡이 처음 시작될 때 타임라인 0초로 초기화
+                    'progress': 0  # 싱크 최적화용 0초 초기화
                 }
                 AZIT_DATA['queue'].append(song_data)
                 send_queue_update()
                 if AZIT_DATA['current_song'] is None:
                     play_next_song()
         except Exception as e:
+            print(f"🚨 음원 추출 실패 상세 로그: {e}")
             emit('status', {'msg': "❌ 음원 추출에 실패했습니다."}, to='main_azit')
     
     elif action == 'sync_time':
@@ -129,8 +157,10 @@ def on_music_control(data):
 
     elif action in ['pause', 'resume']:
         emit('music_broadcast', {'action': action}, to='main_azit')
+        
     elif action == 'skip':
         play_next_song()
+        
     elif action == 'delete':
         idx = data.get('index')
         if 0 <= idx < len(AZIT_DATA['queue']):
@@ -138,15 +168,19 @@ def on_music_control(data):
             del AZIT_DATA['queue'][idx]
             emit('status', {'msg': f"🗑️ 대기열에서 [{del_title}] 곡이 삭제되었습니다."}, to='main_azit')
             send_queue_update()
+            
     elif action == 'move':
         idx = data.get('index')
         direction = data.get('direction')
         q = AZIT_DATA['queue']
-        if direction == 'up' and idx > 0: q[idx], q[idx-1] = q[idx-1], q[idx]
-        elif direction == 'down' and idx < len(q) - 1: q[idx], q[idx+1] = q[idx+1], q[idx]
+        if direction == 'up' and idx > 0: 
+            q[idx], q[idx-1] = q[idx-1], q[idx]
+        elif direction == 'down' and idx < len(q) - 1: 
+            q[idx], q[idx+1] = q[idx+1], q[idx]
         send_queue_update()
 
-# 👑 방장 권한 강제 양도/지정 (최종 마스터 권한)
+
+# 👑 방장 권한 제어 관련 로직
 @socketio.on('transfer_owner')
 def on_transfer_owner(data):
     target_user = data.get('to')
@@ -159,31 +193,39 @@ def play_next_song():
     if AZIT_DATA['queue']:
         next_song = AZIT_DATA['queue'].pop(0)
         AZIT_DATA['current_song'] = next_song
-        emit('music_broadcast', {'action': 'load', 'audioUrl': next_song['audioUrl'], 'title': next_song['title'], 'thumbnail': next_song['thumbnail']}, to='main_azit')
+        emit('music_broadcast', {
+            'action': 'load', 
+            'audioUrl': next_song['audioUrl'], 
+            'title': next_song['title'], 
+            'thumbnail': next_song['thumbnail']
+        }, to='main_azit')
     else:
         AZIT_DATA['current_song'] = None
         emit('music_broadcast', {'action': 'stop_all'}, to='main_azit')
     send_queue_update()
 
 def send_queue_update():
-    socketio.emit('queue_update', {'queue': AZIT_DATA['queue'], 'current_song': AZIT_DATA['current_song']}, to='main_azit')
+    socketio.emit('queue_update', {
+        'queue': AZIT_DATA['queue'], 
+        'current_song': AZIT_DATA['current_song']
+    }, to='main_azit')
 
-# 단일 채널 실시간 다이렉트 입장 로직
+
+# 📡 단일 채널 실시간 다이렉트 입장 로직
 @socketio.on('join_azit')
 def on_join_azit(data):
     username = data.get('username', '손님').strip()
     join_room('main_azit')
     
-    # 👑 마스터 매칭 로직
+    # 👑 절대 마스터 자동 매칭
     if username == MASTER_NAME:
         AZIT_DATA['master'] = username
-        # 마스터는 들어오자마자 자동으로 방장 직위까지 겸임하도록 세팅
         AZIT_DATA['owner'] = username
     
     if username not in AZIT_DATA['users']:
         AZIT_DATA['users'].append(username)
         
-    # 최초 개설자 자동 방장 부여 방어 코드
+    # 최초 개설자 방장 자동 임명 방어 코드
     if AZIT_DATA['owner'] is None and AZIT_DATA['master'] != username:
         AZIT_DATA['owner'] = username
         
@@ -192,30 +234,30 @@ def on_join_azit(data):
     
     if AZIT_DATA['current_song']:
         curr = AZIT_DATA['current_song']
-        # ⭐ 중요: 새 유저에게 곡 주소뿐만 아니라, 현재 흘러간 시간(progress)까지 덤으로 얹어서 쏩니다!
         emit('music_broadcast', {
             'action': 'load', 
             'audioUrl': curr['audioUrl'], 
             'title': curr['title'], 
             'thumbnail': curr['thumbnail'],
-            'seekTo': curr['progress'] # 몇 초부터 틀어야 하는지 명시
+            'seekTo': curr['progress']  # 중간 진입 시 동시 싱크 타임워프
         }, to=request.sid)
         
     emit('status', {'msg': f"📣 {username}님이 아지트에 합류했습니다."}, to='main_azit')
 
 @socketio.on('disconnect')
 def on_disconnect():
-    # 유저 연결 해제 시 청소 로직
-    # 단순화 테스트를 위해 생략 가능하나 브라우저 이탈 대응용
     pass
 
 def send_room_status():
-    socketio.emit('room_update', {'users': AZIT_DATA['users'], 'owner': AZIT_DATA['owner'], 'master': AZIT_DATA['master']}, to='main_azit')
+    socketio.emit('room_update', {
+        'users': AZIT_DATA['users'], 
+        'owner': AZIT_DATA['owner'], 
+        'master': AZIT_DATA['master']
+    }, to='main_azit')
+
 
 if __name__ == '__main__':
-    import os
-    # Render가 지정해 주는 환경 변수 포트(PORT)를 자동으로 낚아채고, 없으면 기본 5000번을 씁니다.
+    # Render 동적 포트 자동 바인딩 (없으면 기본 5000포트)
     port = int(os.environ.get("PORT", 5000))
-    
-    # host="0.0.0.0"을 꽂아줘야 Render 외부 망과 연결되는 문이 완전히 열립니다!
+    # host="0.0.0.0"을 선언해야 내부망 포트가 정상 작동합니다.
     socketio.run(app, host="0.0.0.0", port=port, debug=False)
