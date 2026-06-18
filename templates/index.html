@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>W2G 멀티룸 음악 아지트</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #0b0b0e; color: #e4e4e7; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; letter-spacing: -0.5px; }
+        .hidden { display: none !important; }
+        button { cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 700; border: none; }
+        
+        /* 🟩 스포티파이 감성 네온 다크 대기실 (로그인 전) */
+        .lobby-container { width: 440px; background: #121218; padding: 50px; border-radius: 28px; border: 1px solid #1f1f2e; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.8); }
+        .lobby-container h1 { color: #1db954; font-family: 'Montserrat', sans-serif; font-size: 36px; font-weight: 900; margin-bottom: 40px; text-shadow: 0 0 15px rgba(29,185,84,0.3); }
+        
+        .discord-login-btn { width: 100%; padding: 18px; background-color: #5865F2; border-radius: 16px; font-size: 18px; font-weight: bold; display: flex; justify-content: center; align-items: center; gap: 12px; box-sizing: border-box; text-decoration: none; color: white; box-shadow: 0 4px 15px rgba(88,101,242,0.4); }
+        .discord-login-btn:hover { background-color: #4752c4; transform: translateY(-2px); }
+        
+        /* 🎧 완전체 메인 와이드 스포티파이 스타일 3분할 레이아웃 */
+        .main-layout { display: grid; grid-template-columns: 380px 1fr 350px; gap: 24px; width: 98vw; max-width: 1750px; height: 92vh; }
+        .panel { background: #121218; border-radius: 24px; border: 1px solid #1f1f2e; display: flex; flex-direction: column; overflow: hidden; height: 100%; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
+        .panel-header { padding: 22px; background: #181822; border-bottom: 1px solid #1f1f2e; font-size: 16px; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
+        
+        /* 검색창 링크 */
+        .search-container { padding: 20px; display: flex; flex-direction: column; gap: 15px; flex: 1; overflow: hidden; }
+        .search-box-row input { width: 100%; padding: 16px; background: #181824; border: 2px solid transparent; border-radius: 14px; color: #fff; font-size: 15px; box-sizing: border-box; transition: all 0.2s; }
+        .search-box-row input:focus { border-color: #1db954; outline: none; background: #1c1c2b; }
+        .search-results-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        
+        .search-item-card { background: #181824; border: 1px solid transparent; border-radius: 14px; overflow: hidden; display: flex; gap: 14px; padding: 10px; cursor: pointer; }
+        .search-item-card:hover { background: #1f1f30; border-color: #1db954; transform: scale(1.02); }
+        .search-thumb { width: 96px; height: 64px; object-fit: cover; border-radius: 8px; }
+        .search-meta { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+        .search-title { font-size: 14px; font-weight: 700; color: #fff; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 중앙 미디어 플레이어 가젯 */
+        .center-panel { background: transparent; border: none; gap: 24px; display: flex; flex-direction: column; height: 100%; }
+        .player-content { flex: 1; background: #121218; border-radius: 24px; border: 1px solid #1f1f2e; display: flex; flex-direction: column; padding: 35px; justify-content: center; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
+        
+        .album-poster-frame { width: 260px; height: 260px; background: #181824; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 45px rgba(0,0,0,0.7); border: 2px solid #1f1f2e; margin-bottom: 25px; display: flex; justify-content: center; align-items: center; }
+        .album-poster-img { width: 100%; height: 100%; object-fit: cover; }
+        .album-placeholder { font-size: 80px; color: #2a2a3a; }
+        .song-title { font-size: 24px; font-weight: 900; color: #ffffff; margin-bottom: 12px; text-align: center; max-width: 85%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .admin-controls { display: flex; gap: 15px; margin-top: 20px; }
+        .ctrl-btn { background: #181824; border: 1px solid #1f1f2e; color: #fff; padding: 12px 26px; border-radius: 12px; font-size: 15px; }
+        .ctrl-btn:hover { background: #1db954; color: #000; font-weight: bold; border-color: #1db954; }
+        
+        /* 📜 재생 목록 하단 피드 구조 */
+        .queue-box { height: 38%; background: #121218; border-radius: 24px; border: 1px solid #1f1f2e; display: flex; flex-direction: column; overflow: hidden; }
+        .queue-list { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #0e0e14; }
+        
+        .queue-item { background: #181824; padding: 12px 18px; border-radius: 14px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+        .queue-index { font-weight: 900; color: #1db954; min-width: 25px; }
+        .queue-title { flex: 1; font-weight: 700; color: #e4e4e7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .queue-actions { display: flex; gap: 6px; }
+        .q-btn { padding: 6px 10px; font-size: 12px; border-radius: 6px; background: #222230; border: 1px solid #2d2d42; color: white; }
+        .q-btn:hover { background: #2d2d42; border-color: #1db954; }
+        .q-del { background: #ef4444; border: none; }
+        .q-del:hover { background: #dc2626; }
+
+        /* 우측 채널 스쿼드 인원 배정 목록 */
+        .user-list-box { padding: 18px 22px; background: #181822; border-bottom: 1px solid #1f1f2e; max-height: 160px; overflow-y: auto; }
+        .user-list-title { font-size: 13px; color: #71717a; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; font-size: 15px; margin-bottom: 10px; }
+        .role-master { color: #ff4560 !important; font-weight: 900 !important; }
+        .role-owner { color: #1db954 !important; font-weight: 900 !important; }
+        .give-crown-btn { background: #1db954; color: #000; font-size: 12px; padding: 5px 10px; border-radius: 6px; font-weight: 800; }
+        
+        .chat-container { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #0c0c12; font-size: 14px; }
+        .msg-node { line-height: 1.5; color: #a1a1aa; }
+        .msg-system { color: #1db954; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <audio id="bgAudioEngine" style="display: none;" onended="onTrackEnded()"></audio>
+
+    <div id="lobby" class="lobby-container">
+        <h1>MUSIC AZIT</h1>
+        <p style="color:#a1a1aa; font-size:15px; margin-bottom:30px; font-weight:500;">디스코드 계정으로 로그인 후 아지트에 즉시 접속합니다.</p>
+        <a href="/login" class="discord-login-btn"><span>🎮 Discord 1초 로그인 및 입장</span></a>
+    </div>
+
+    <div id="musicRoom" class="main-layout hidden">
+        
+        <div class="panel">
+            <div class="panel-header">🔍 아지트 음원 통합 검색</div>
+            <div class="search-container">
+                <div class="search-box-row">
+                    <input type="text" id="songSearchKeyword" placeholder="가수나 노래 제목 입력..." oninput="onSearchInput()">
+                </div>
+                <div class="search-results-scroll" id="searchResultsBox">
+                    <div style="color:#71717a; text-align:center; font-size:13px; margin-top:40px;">방금 듣고 싶은 곡을 검색해 보세요!</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="center-panel">
+            <div class="player-content">
+                <div class="album-poster-frame" id="posterFrame">
+                    <div class="album-placeholder" id="posterPlaceholder">📻</div>
+                </div>
+                <div class="song-title" id="mainSongTitle">현재 재생 목록이 비어 있습니다</div>
+
+                <div id="adminPanel" class="admin-controls hidden">
+                    <button class="ctrl-btn" onclick="controlMusic('pause')">⏸️ 일시정지</button>
+                    <button class="ctrl-btn" onclick="controlMusic('resume')">▶️ 다시재생</button>
+                    <button class="ctrl-btn" onclick="controlMusic('skip')">⏭️ 다음곡 넘기기</button>
+                </div>
+            </div>
+
+            <div class="queue-box">
+                <div class="panel-header" style="background:#181822;" id="queueHeaderCount">📜 다음 재생 목록 (대기 0곡)</div>
+                <div class="queue-list" id="realtimeQueue"></div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="room-info-header panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 id="roomTitle" style="margin:0; font-size:18px;">🎵 음악 아지트 본방</h2>
+                <a href="/logout" style="color:#ef4444; text-decoration:none; font-size:13px; font-weight:bold;">로그아웃</a>
+            </div>
+            <div class="user-list-box">
+                <div class="user-list-title" id="userListCount">접속 중인 친구 (0명)</div>
+                <div id="userListBox"></div>
+            </div>
+            <div id="chatBox" class="chat-container"></div>
+        </div>
+    </div>
+
+<script>
+    const socket = io();
+    let myName = "";
+    let amIMaster = false; // 👑 최종 마스터 여부 트리거
+    let amIOwner = false;  // ⭐️ 현재 방장 여부 트리거
+    const audioEngine = document.getElementById('bgAudioEngine');
+
+    let myNameVar = "";
+    {% if user %} myNameVar = "{{ user.name }}"; {% endif %}
+    myName = myNameVar;
+
+    // 🚪 [핵심 변경] 로그인 정보가 박혀있다면 로비 버튼 무시하고 즉시 본방으로 자동 강제 소환!
+    if (myName) {
+        document.getElementById('lobby').classList.add('hidden');
+        document.getElementById('musicRoom').classList.remove('hidden');
+        // 백엔드 단일 주소 룸 조인 프로토콜 발송
+        socket.emit('join_azit', { username: myName });
+    }
+
+    socket.on('room_update', function(data) {
+        document.getElementById('userListCount').innerText = `접속 중인 친구 (${data.users.length}명)`;
+        const userListBox = document.getElementById('userListBox');
+        userListBox.innerHTML = "";
+        
+        // 내 권한 실시간 판별
+        amIMaster = (data.master === myName);
+        amIOwner = (data.owner === myName);
+        
+        data.users.forEach(user => {
+            let classStyle = ""; let tag = "";
+            if (user === data.master) { classStyle = "class='role-master'"; tag = " 👑(마스터)"; }
+            else if (user === data.owner) { classStyle = "class='role-owner'"; tag = " ⭐️(방장)"; }
+            
+            let crownBtn = "";
+            // ⭐ [기능 2] 마스터 권한을 가진 방장님만 모든 유저 옆에 "방장 위임" 버튼이 활성화되어 방장을 즉석 지정할 수 있습니다.
+            if (amIMaster && user !== myName) {
+                crownBtn = `<button class="give-crown-btn" onclick="assignOwner('${user}')">방장 임명</button>`;
+            }
+            userListBox.innerHTML += `<div class="user-item"><span ${classStyle}>${user}${tag}</span>${crownBtn}</div>`;
+        });
+
+        // 현재 방장 무리 혹은 최종 마스터 권한자들에게만 미디어 컨트롤 패널 노출
+        if (amIOwner || amIMaster) document.getElementById('adminPanel').classList.remove('hidden');
+        else document.getElementById('adminPanel').classList.add('hidden');
+    });
+
+    // ⏱️ 실시간 타이핑 큐 디바운싱
+    let searchTimer;
+    function onSearchInput() {
+        const keyword = document.getElementById('songSearchKeyword').value.trim();
+        const box = document.getElementById('searchResultsBox');
+        if (!keyword) {
+            box.innerHTML = `<div style="color:#71717a; text-align:center; font-size:13px; margin-top:40px;">방금 듣고 싶은 곡을 검색해 보세요!</div>`;
+            clearTimeout(searchTimer); return;
+        }
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+            box.innerHTML = `<div style="color:#1db954; text-align:center; font-size:13px; margin-top:40px;">실시간 매칭 중...</div>`;
+            socket.emit('search_song', { keyword: keyword });
+        }, 400); 
+    }
+
+    socket.on('search_result', function(data) {
+        const box = document.getElementById('searchResultsBox'); box.innerHTML = "";
+        if (data.results.length === 0) {
+            box.innerHTML = `<div style="color:#ff4545; text-align:center; font-size:13px; margin-top:40px;">검색 결과가 없습니다.</div>`; return;
+        }
+        data.results.forEach(song => {
+            const encUrl = encodeURIComponent(song.url); const encThumb = encodeURIComponent(song.thumbnail);
+            box.innerHTML += `
+                <div class="search-item-card" onclick="selectSong('${encUrl}', '${encThumb}')">
+                    <img class="search-thumb" src="${song.thumbnail}">
+                    <div class="search-meta"><div class="search-title">${song.title}</div></div>
+                </div>`;
+        });
+    });
+
+    function selectSong(encUrl, encThumb) {
+        const url = decodeURIComponent(encUrl); const thumb = decodeURIComponent(encThumb);
+        socket.emit('music_control', { room: 'main_azit', action: 'load', url: url, thumbnail: thumb });
+    }
+
+    function controlMusic(action) { socket.emit('music_control', { room: 'main_azit', action: action }); }
+
+    // 🍿 대기열 뷰어 랜더링
+    socket.on('queue_update', function(data) {
+        const queueList = document.getElementById('realtimeQueue');
+        document.getElementById('queueHeaderCount').innerText = `📜 다음 재생 목록 (대기 ${data.queue.length}곡)`;
+        queueList.innerHTML = "";
+
+        if (data.queue.length === 0) {
+            queueList.innerHTML = `<div style="color:#71717a; text-align:center; font-size:14px; margin-top:20px;">예약된 대기열이 없습니다.</div>`;
+        }
+
+        data.queue.forEach((song, index) => {
+            let actionButtons = "";
+            // 방장 혹은 최종 마스터 권한이 있으면 셔플/삭제 키트 제공
+            if (amIOwner || amIMaster) {
+                actionButtons = `
+                    <div class="queue-actions">
+                        <button class="q-btn" onclick="moveQueue(${index}, 'up')">🔼</button>
+                        <button class="q-btn" onclick="moveQueue(${index}, 'down')">🔽</button>
+                        <button class="q-btn q-del" onclick="deleteQueue(${index})">❌</button>
+                    </div>`;
+            }
+            queueList.innerHTML += `
+                <div class="queue-item">
+                    <span class="queue-index">${index + 1}</span>
+                    <span class="queue-title">${song.title}</span>
+                    ${actionButtons}
+                </div>`;
+        });
+    });
+
+    function deleteQueue(index) { socket.emit('music_control', { room: 'main_azit', action: 'delete', index: index }); }
+    function moveQueue(index, direction) { socket.emit('music_control', { room: 'main_azit', action: 'move', index: index, direction: direction }); }
+
+    // 👑 마스터의 방장 전권 임명 이적 함수
+    function assignOwner(targetUser) {
+        socket.emit('transfer_owner', { to: targetUser });
+    }
+
+    function onTrackEnded() {
+        if (amIOwner || amIMaster) {
+            socket.emit('music_control', { room: 'main_azit', action: 'skip' });
+        }
+    }
+
+    socket.on('music_broadcast', function(data) {
+        if (data.action === 'load') {
+            try {
+                audioEngine.src = data.audioUrl;
+                audioEngine.play();
+                
+                document.getElementById('posterFrame').innerHTML = `<img class="album-poster-img" src="${data.thumbnail}">`;
+                document.getElementById('mainSongTitle').innerText = data.title;
+
+                // ⭐ [싱크 파괴 차단 핵심 마법] 
+                // 새로 들어온 유저에게 'seekTo(몇 초부터 틀어라)' 신호가 들어있으면 그 시간으로 강제 워프시킵니다!
+                if (data.seekTo && data.seekTo > 0) {
+                    console.log("⏱️ 늦참자 싱크 발견! 현재 방장 재생 시간인 " + data.seekTo + "초 위치로 타임 워프합니다.");
+                    audioEngine.currentTime = data.seekTo;
+                }
+            } catch(error) { console.error(error); }
+        } 
+        else if (data.action === 'pause') { audioEngine.pause(); document.getElementById('mainSongTitle').innerText = `⏸️ 음원 재생 일시정지됨`; } 
+        else if (data.action === 'resume') { audioEngine.play(); document.getElementById('mainSongTitle').innerText = `💿 재생 중...`; }
+        else if (data.action === 'stop_all') {
+            audioEngine.pause(); audioEngine.src = "";
+            document.getElementById('posterFrame').innerHTML = `<div class="album-placeholder" id="posterPlaceholder">📻</div>`;
+            document.getElementById('mainSongTitle').innerText = "현재 대기열이 비어 있습니다";
+        }
+    });
+
+    socket.on('status', function(data) {
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML += `<div class="msg-node msg-system">${data.msg}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // 실시간 재생 동기화 
+    audioEngine.ontimeupdate = function() {
+        // 내가 방장이거나 마스터일 때만 전용으로 서버에 "나 지금 몇 초 지나가고 있어"라고 보고함
+        if (amIOwner || amIMaster) {
+            socket.emit('music_control', {
+                room: 'main_azit',
+                action: 'sync_time',
+                currentTime: audioEngine.currentTime
+            });
+        }
+    };
+</script>
+</body>
+</html>
