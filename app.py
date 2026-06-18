@@ -11,7 +11,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # 🔑 디스코드 OAuth2 설정 (유지)
 DISCORD_CLIENT_ID = '1516847818344497243'
 DISCORD_CLIENT_SECRET = 'WMM8U0_CvMzNJpsy7cYcnLCVTXvn3oIc'
-DISCORD_REDIRECT_URI = 'http://127.0.0.1:5000/callback'
+DISCORD_REDIRECT_URI = 'https://music-azit.onrender.com/callback'
 
 # ⭐ [필독] 방장님의 진짜 디스코드 닉네임을 여기에 적어주세요!
 # 로그인했을 때 이 이름과 일치하면 자동으로 '최종 마스터' 자격을 부여합니다.
