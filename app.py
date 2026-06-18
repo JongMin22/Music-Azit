@@ -3,6 +3,8 @@ from flask_socketio import SocketIO, join_room, leave_room, emit
 import requests
 import urllib.parse
 from yt_dlp import YoutubeDL
+import static_ffmpeg 
+static_ffmpeg.add_to_path()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'music_secret_key_1234'
@@ -31,9 +33,19 @@ ydl_opts = {
     'noplaylist': True,
     'quiet': True,
     'skip_download': True,
-    'force_generic_extractor': False
+    'force_generic_extractor': False,
+    # 🕵️‍♂️ 유튜브의 403 차단 장벽을 부수는 브라우저 위장 크래킹 옵션
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    },
+    'extractor_args': {
+        'youtube': {
+            'player_client': ['android', 'web']
+        }
+    }
 }
-
 @app.route('/')
 def index():
     user_info = session.get('user')
