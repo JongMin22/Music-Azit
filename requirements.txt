@@ -5,3 +5,4 @@ eventlet==0.35.2
 yt-dlp
 ffmpeg-python==0.2.0
 static-ffmpeg==2.5.0
+yt-dlp-youtube-oauth2

@@ -123,24 +123,24 @@ def on_music_control(data):
         try:
             # 🍪 실제 재생 시 봇 인증을 무력화하는 무적의 우회 바구니
             ydl_opts = {
-                'format': 'ba/ba*',
+                'format': 'ba/ba*',  # 포맷 에러 방지
                 'noplaylist': True,
                 'quiet': True,
                 'skip_download': True,
                 
-                # 🍪 기존 쿠키 라인 유지
-                'cookiefile': os.path.join(os.path.dirname(__file__), 'cookies.txt'), 
-                
-                # 🎯 [2026 최신 차단 파괴 옵션] 유튜브의 기기 인증 토큰(POToken)을 강제로 생성 및 주입합니다.
+                # 📱 유튜브가 봇 검사를 아예 안 하는 모바일(iOS/Android) 전용 이너 엔진 강제 지정
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['web', 'ios'],  # 폰(iOS)에서 요청하는 것처럼 위장해서 락을 해제
-                        'po_token': ['web+https://www.youtube.com/checkpoint'],
+                        'player_client': ['ios', 'android'],
+                        'player_skip': ['configs', 'webpage'],
                     }
                 },
                 
+                # 헤더도 모바일 사파리 브라우저인 척 완벽하게 가면을 씌웁니다.
                 'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+                    'Accept': '*/*',
+                    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
                 }
             }
             
