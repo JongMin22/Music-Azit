@@ -33,17 +33,16 @@ ydl_opts = {
     'noplaylist': True,
     'quiet': True,
     'skip_download': True,
+    
+    # ⚡ [핵심 속도 패치] 음원 상세 추출 과정을 건너뛰고 '검색 결과 목록'만 빠르게 낚아챕니다.
+    'extract_flat': 'in_playlist',  
     'force_generic_extractor': False,
-    # 🕵️‍♂️ 유튜브의 403 차단 장벽을 부수는 브라우저 위장 크래킹 옵션
+    
+    # 기존에 추가했던 쿠키 파일도 그대로 유지해 줍니다 (봇 차단 방지)
+    'cookiefile': 'cookies.txt', 
+    
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-    },
-    'extractor_args': {
-        'youtube': {
-            'player_client': ['android', 'web']
-        }
     }
 }
 @app.route('/')
