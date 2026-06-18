@@ -3,8 +3,8 @@ from flask_socketio import SocketIO, join_room, leave_room, emit
 import requests
 import urllib.parse
 from yt_dlp import YoutubeDL
-import static_ffmpeg 
-static_ffmpeg.add_to_path()
+import static_ffmpeg
+static_ffmpeg.add_paths()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'music_secret_key_1234'
