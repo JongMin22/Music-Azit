@@ -123,11 +123,14 @@ def on_music_control(data):
         try:
             # 🍪 실제 재생 시 봇 인증을 무력화하는 무적의 우회 바구니
             ydl_opts = {
-                'format': 'ba/ba*',  # 포맷 다운 에러 완벽 방지
+                'format': 'ba/ba*',
                 'noplaylist': True,
                 'quiet': True,
                 'skip_download': True,
-                'cookiefile': 'cookies.txt',  # 구워둔 크롬 로그인 쿠키 연동
+                
+                # ⬇️ 기존 'cookiefile': 'cookies.txt'를 지우고, 아래처럼 절대 경로로 명시해 줍니다!
+                'cookiefile': os.path.join(os.path.dirname(__file__), 'cookies.txt'), 
+                
                 'http_headers': {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
